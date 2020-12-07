@@ -1,5 +1,6 @@
 package ru.spbstu.icc.kspt.lab2.continuewatch
 
+import android.annotation.SuppressLint
 import android.os.AsyncTask
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -10,19 +11,24 @@ class MainActivity : AppCompatActivity() {
 
     private val nameArg = "NAME_ARG"
 
+    var secondsElapsed = 0
+
     lateinit var task: AsyncTask<Void, Int, Void>
 
     override fun onPause() {
         super.onPause()
         task.cancel(true)
+        val pref = getSharedPreferences(nameArg, MODE_PRIVATE)
+        val editor = pref.edit()
+        editor.putInt(nameArg, secondsElapsed).apply()
     }
 
     override fun onResume() {
         super.onResume()
         val pref = getSharedPreferences(nameArg, MODE_PRIVATE)
-        val secondsElapsed = pref.getInt(nameArg, 0)
+        secondsElapsed = pref.getInt(nameArg, 0)
         textSecondsElapsed.text = resources.getString(R.string.text, secondsElapsed)
-        task = MyTask(this, secondsElapsed)
+        task = MyTask()
         task.execute()
     }
 
@@ -31,8 +37,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
     }
 
-    class MyTask(private val context: MainActivity, private var secondsElapsed: Int) :
-        AsyncTask<Void, Int, Void>() {
+    @SuppressLint("StaticFieldLeak")
+    inner class MyTask : AsyncTask<Void, Int, Void>() {
         override fun doInBackground(vararg params: Void?): Void? {
             var time = System.currentTimeMillis() + 1000
             while (!isCancelled) {
@@ -47,18 +53,7 @@ class MainActivity : AppCompatActivity() {
 
         override fun onProgressUpdate(vararg values: Int?) {
             super.onProgressUpdate(*values)
-            context.apply {
-                textSecondsElapsed.text = resources.getString(R.string.text, values[0])
-            }
-        }
-
-        override fun onCancelled() {
-            super.onCancelled()
-            context.apply {
-                val pref = getSharedPreferences(nameArg, MODE_PRIVATE)
-                val editor = pref.edit()
-                editor.putInt(nameArg, secondsElapsed).apply()
-            }
+            textSecondsElapsed.text = resources.getString(R.string.text, values[0])
         }
     }
 }
