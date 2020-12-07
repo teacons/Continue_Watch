@@ -1,46 +1,64 @@
 package ru.spbstu.icc.kspt.lab2.continuewatch
 
+import android.os.AsyncTask
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.TimeUnit
+
 
 class MainActivity : AppCompatActivity() {
 
     private val nameArg = "NAME_ARG"
 
-    var secondsElapsed: Int = 0
-
-    lateinit var service: ScheduledExecutorService
+    lateinit var task: AsyncTask<Void, Int, Void>
 
     override fun onPause() {
         super.onPause()
-        val pref = getSharedPreferences(nameArg, MODE_PRIVATE)
-        val editor = pref.edit()
-        editor.putInt(nameArg, secondsElapsed).apply()
-        service.shutdown()
+        task.cancel(true)
     }
 
     override fun onResume() {
         super.onResume()
-        service = Executors.newSingleThreadScheduledExecutor()
-        service.scheduleWithFixedDelay({
-            textSecondsElapsed.post {
-                textSecondsElapsed.text =
-                    resources.getString(R.string.text, secondsElapsed++)
-            }
-        }, 1, 1, TimeUnit.SECONDS)
+        val pref = getSharedPreferences(nameArg, MODE_PRIVATE)
+        val secondsElapsed = pref.getInt(nameArg, 0)
+        textSecondsElapsed.text = resources.getString(R.string.text, secondsElapsed)
+        task = MyTask(this, secondsElapsed)
+        task.execute()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (secondsElapsed == 0) {
-            val pref = getSharedPreferences(nameArg, MODE_PRIVATE)
-            secondsElapsed = pref.getInt(nameArg, 0)
-        }
         setContentView(R.layout.activity_main)
-        textSecondsElapsed.text = resources.getString(R.string.text, secondsElapsed)
+    }
+
+    class MyTask(private val context: MainActivity, private var secondsElapsed: Int) :
+        AsyncTask<Void, Int, Void>() {
+        override fun doInBackground(vararg params: Void?): Void? {
+            var time = System.currentTimeMillis() + 1000
+            while (!isCancelled) {
+                if (time == System.currentTimeMillis()) {
+                    secondsElapsed++
+                    publishProgress(secondsElapsed)
+                    time = System.currentTimeMillis() + 1000
+                }
+            }
+            return null
+        }
+
+        override fun onProgressUpdate(vararg values: Int?) {
+            super.onProgressUpdate(*values)
+            context.apply {
+                textSecondsElapsed.text = resources.getString(R.string.text, values[0])
+            }
+        }
+
+        override fun onCancelled() {
+            super.onCancelled()
+            context.apply {
+                val pref = getSharedPreferences(nameArg, MODE_PRIVATE)
+                val editor = pref.edit()
+                editor.putInt(nameArg, secondsElapsed).apply()
+            }
+        }
     }
 }
